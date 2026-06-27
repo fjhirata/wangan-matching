@@ -1,0 +1,18 @@
+# Render(https://render.com) 用ブループリント。
+# GitHubに本リポジトリを置き、Renderで「Blueprint」から読み込むと自動でWebサービスが作成されます。
+services:
+  - type: web
+    name: wangan-matching
+    runtime: python
+    plan: starter            # 常時稼働で月次無人更新したい場合は starter 以上（free はアイドルで停止します）
+    buildCommand: ""         # ビルド不要（依存なし）
+    startCommand: python3 backend/server.py
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.6"
+      - key: REFRESH_HOURS
+        value: "12"          # スプレッドシートを取りに行く間隔(時間)
+      - key: REFRESH_TOKEN
+        generateValue: true  # /api/refresh 保護用トークン（自動生成）

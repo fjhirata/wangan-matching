@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+*.tmp
+data/**/*.tmp
+.DS_Store
+
+# 生データ（公開リポジトリに含めない。月次ワークフローがGoogleシートから都度取得して再集計）
+data/raw/
