@@ -299,7 +299,7 @@ function renderResult() {
       const facs = ["プール", "ジム", "サウナ", "バー", "コンビニ", "内廊下"].filter((f) => b.facilities && b.facilities[f]);
       const srcLabel = b.tsuboSource === "成約" ? "成約" : "募集";
       return `
-        <div class="rank">
+        <div class="rank rank-click" data-bid="${L.bid}">
           <div class="rthumb">
             ${b.photoUrl ? `<img src="${b.photoUrl}" alt="${L.name}の外観" loading="lazy" onerror="this.style.display='none'">` : ""}
             <span class="medal">${medals[idx] || ""}</span>
@@ -320,6 +320,7 @@ function renderResult() {
             </div>
             ${facs.length ? `<div class="chips">${facs.map((f) => `<span class="chip fac">${f === "バー" ? "ラウンジ/バー" : f}</span>`).join("")}</div>` : ""}
             <div class="rest">現在募集中／坪単価は${b.tsuboSource === "成約" ? "実成約" : "募集"}ベース。階数・面積はぼかして表示しています。</div>
+            <div class="tap-hint">▸ この建物の募集中の部屋をすべて見る</div>
           </div>
           <div class="match"><b>${m.matchPct}<small>%</small></b><span>マッチ度</span></div>
         </div>`;
@@ -379,6 +380,48 @@ function renderResult() {
     state.conds = { budget: 15000, areaMin: 50, layouts: [], ageMax: null, walkMax: null };
     go("intro");
   };
+  $app.querySelectorAll(".rank-click").forEach((card) => {
+    card.onclick = () => openBuildingModal(card.dataset.bid);
+  });
+}
+
+/* ---------- 建物の募集中住戸モーダル ---------- */
+function openBuildingModal(bid) {
+  const b = state.mById[bid];
+  if (!b) return;
+  const units = state.listings.filter((L) => L.bid === bid).sort((x, y) => x.price - y.price);
+  track("building_detail", { building: b.name, units: units.length });
+  const facs = ["プール", "ジム", "サウナ", "バー", "コンビニ", "内廊下"].filter((f) => b.facilities && b.facilities[f]);
+  const rows = units.map((L) => `
+    <div class="unit">
+      <div class="uinfo">
+        <b>${blurFloor(L.floor)}・${blurSqm(L.sqm)}</b>
+        <span>${L.layout || "間取り不明"}${L.direction ? "・" + L.direction + "向き" : ""}${L.corner ? "・角部屋" : ""}・🌅${L.viewScore}</span>
+      </div>
+      <div class="uprice"><b>${fmtMan(L.price)}</b><span>坪${L.askingTsubo}万</span></div>
+    </div>`).join("");
+  const m = el(`<div class="modal-ov" id="bmodal">
+    <div class="modal" role="dialog" aria-label="${b.name} の募集中住戸">
+      <button class="modal-x" aria-label="閉じる">×</button>
+      <div class="rname" style="font-size:1.22rem;padding-right:30px">${b.name}</div>
+      <div class="rmeta">${b.area}${b.station ? "・" + b.station + "駅 徒歩" + (b.walkMin != null ? b.walkMin + "分" : "—") : ""}${b.ageYears != null ? "・築" + b.ageYears + "年" : ""}${b.seismic ? "・" + b.seismic : ""}${b.totalUnits ? "・" + b.totalUnits + "戸" : ""}</div>
+      <div class="chips" style="margin-top:8px">
+        ${b.marketTsubo ? `<span class="chip price">市場坪単価 ${b.marketTsubo}万(${b.tsuboSource === "成約" ? "成約" : "募集"})</span>` : ""}
+        ${b.trendPct != null ? `<span class="chip ${b.trendPct >= 0 ? "up" : "down"}">📈 ${b.trendPct >= 0 ? "+" : ""}${b.trendPct}%</span>` : ""}
+        ${facs.map((f) => `<span class="chip fac">${f === "バー" ? "ラウンジ/バー" : f}</span>`).join("")}
+      </div>
+      <div class="modal-sub">現在募集中 <b>${units.length}</b> 戸 <small>（安い順・階数/面積はぼかし表示）</small></div>
+      <div class="unit-list">${rows || '<div class="rest">現在この建物の募集はありません。</div>'}</div>
+      <p class="lock-note" style="margin-top:10px">※ 部屋番号・正確な階数/面積・最新の空室状況はLINEでご案内します</p>
+      <button class="btn btn-line" id="mLine">💬 この建物について相談する（LINE）</button>
+    </div>
+  </div>`);
+  document.body.appendChild(m);
+  document.body.style.overflow = "hidden";
+  const close = () => { m.remove(); document.body.style.overflow = ""; };
+  m.onclick = (e) => { if (e.target === m) close(); };
+  m.querySelector(".modal-x").onclick = close;
+  m.querySelector("#mLine").onclick = () => { track("line_click", { from: "modal", building: b.name }); window.open(CONFIG.LINE_URL, "_blank"); };
 }
 
 function shareX() {
