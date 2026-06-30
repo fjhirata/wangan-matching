@@ -171,3 +171,16 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:26px;heigh
 @keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 
 @media(min-width:480px){ .hero h1{font-size:3rem} .hero-icon{height:228px} }
+
+/* ===== v2: セレクト／間取りチップ／6軸レジェンド ===== */
+.fselect{width:100%;font:inherit;font-size:1rem;font-weight:700;color:var(--ink);background:#f4f8fd;
+  border:1.5px solid var(--line);border-radius:14px;padding:13px 14px;cursor:pointer}
+.fselect:focus{outline:none;border-color:var(--bay-l)}
+.fhint{font-size:.72rem;color:var(--muted);font-weight:600}
+.lchips{display:flex;flex-wrap:wrap;gap:8px}
+.lchip{font:inherit;font-weight:700;font-size:.9rem;background:#f4f8fd;border:1.5px solid var(--line);
+  color:var(--ink);border-radius:999px;padding:9px 16px;cursor:pointer;transition:.15s}
+.lchip:hover{background:#e9f2fb}
+.lchip.on{background:var(--bay-grad);border-color:transparent;color:#fff;box-shadow:0 6px 16px rgba(20,99,191,.28)}
+/* 6軸に対応（5列→3列×2段） */
+.axis-legend{grid-template-columns:repeat(3,1fr);gap:10px 6px;margin-top:10px}
