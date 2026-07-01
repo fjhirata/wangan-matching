@@ -308,32 +308,47 @@ function renderResult() {
          <button class="btn btn-primary" id="loosen">条件を変更する</button>
        </div>`
     : r.matches.map((m, idx) => {
-      const L = m.listing, b = m.building || {};
+      const b = m.building || {};
+      const bid = m.listing.bid;
+      // この建物で「条件に合う募集中の住戸」を集計して建物単位で見せる（1戸限定の紛らわしさを回避）
+      let units = state.listings.filter((L) => L.bid === bid && WANGAN.listingPassesConds(L, b, r.conds));
+      if (!units.length) units = [m.listing];
+      const prices = units.map((u) => u.price);
+      const tsubos = units.map((u) => u.askingTsubo).filter((x) => x != null);
+      const views = units.map((u) => u.viewScore).filter((x) => x != null);
+      const pMin = Math.min(...prices), pMax = Math.max(...prices);
+      const tMin = tsubos.length ? Math.min(...tsubos) : null, tMax = tsubos.length ? Math.max(...tsubos) : null;
+      const vMax = views.length ? Math.max(...views) : null;
+      const priceStr = pMin === pMax ? fmtMan(pMin) : fmtMan(pMin) + "〜" + fmtMan(pMax);
+      const tsuboStr = tMin === tMax ? tMin + "万/坪" : tMin + "〜" + tMax + "万/坪";
+      const belowMkt = b.marketTsubo && b.tsuboSource === "成約" && tsubos.some((t) => t <= b.marketTsubo);
       const facs = ["プール", "ジム", "サウナ", "バー", "コンビニ", "内廊下"].filter((f) => b.facilities && b.facilities[f]);
       return `
-        <div class="rank rank-click" data-bid="${L.bid}">
+        <div class="rank rank-click" data-bid="${bid}">
           <div class="rthumb">
-            ${b.photoUrl ? `<img src="${b.photoUrl}" alt="${L.name}の外観" loading="lazy" onerror="this.style.display='none'">` : ""}
+            ${b.photoUrl ? `<img src="${b.photoUrl}" alt="${b.name}の外観" loading="lazy" onerror="this.style.display='none'">` : ""}
             <span class="medal">${medals[idx] || ""}</span>
           </div>
           <div class="rinfo">
             ${idx === 0 ? '<span class="best-badge">★ ベストマッチ</span>' : ""}
-            <div class="rname">${L.name}</div>
-            <div class="rmeta">${L.area}${b.station ? "・" + b.station + "駅 徒歩" + (b.walkMin != null ? b.walkMin + "分" : "—") : ""}${b.ageYears != null ? "・築" + b.ageYears + "年" : ""}${b.seismic ? "・" + b.seismic : ""}</div>
+            <div class="rname">${b.name}</div>
+            <div class="rmeta">${b.area}${b.station ? "・" + b.station + "駅 徒歩" + (b.walkMin != null ? b.walkMin + "分" : "—") : ""}${b.ageYears != null ? "・築" + b.ageYears + "年" : ""}${b.seismic ? "・" + b.seismic : ""}</div>
             <div class="chips">
-              <span class="chip price">${fmtMan(L.price)}</span>
-              <span class="chip">${blurFloor(L.floor)}・${blurSqm(L.sqm)}${L.layout ? "・" + L.layout : ""}${L.direction ? "・" + L.direction + "向き" : ""}${L.corner ? "・角部屋" : ""}</span>
+              <span class="chip price">募集 ${priceStr}</span>
+              <span class="chip">条件に合う ${units.length}戸</span>
             </div>
             <div class="chips">
-              <span class="chip price">この部屋 ${L.askingTsubo}万/坪</span>
+              ${tMin != null ? `<span class="chip">募集坪単価 ${tsuboStr}</span>` : ""}
               ${b.marketTsubo ? `<span class="chip">${b.tsuboSource === "成約" ? "成約相場 " + b.marketTsubo + "万/坪" : "参考 " + b.marketTsubo + "万/坪(募集)"}</span>` : ""}
-              ${valueTag(L.askingTsubo, b.marketTsubo, b.tsuboSource)}
-              ${b.trendPct != null ? `<span class="chip ${b.trendPct >= 0 ? "up" : "down"}">📈 ${b.trendPct >= 0 ? "+" : ""}${b.trendPct}%${b.trendYears ? "(" + b.trendYears + "年)" : "(累計)"}</span>` : ""}
-              <span class="chip fac">🌅 眺望 ${L.viewScore}</span>
+              ${belowMkt ? `<span class="chip vgood">相場以下の部屋あり</span>` : ""}
             </div>
-            ${facs.length ? `<div class="chips">${facs.map((f) => `<span class="chip fac">${f === "バー" ? "ラウンジ/バー" : f}</span>`).join("")}</div>` : ""}
-            <div class="rest">現在募集中／坪単価は${b.tsuboSource === "成約" ? "実成約" : "募集"}ベース。階数・面積はぼかして表示しています。</div>
-            <div class="tap-hint">▸ この建物の募集中の部屋をすべて見る</div>
+            <div class="chips">
+              ${b.trendPct != null ? `<span class="chip ${b.trendPct >= 0 ? "up" : "down"}">📈 ${b.trendPct >= 0 ? "+" : ""}${b.trendPct}%${b.trendYears ? "(" + b.trendYears + "年)" : "(累計)"}</span>` : ""}
+              ${vMax != null ? `<span class="chip fac">🌅 眺望 最大${vMax}</span>` : ""}
+              ${facs.map((f) => `<span class="chip fac">${f === "バー" ? "ラウンジ/バー" : f}</span>`).join("")}
+            </div>
+            <div class="rest">条件に合う募集中 ${units.length}戸／成約相場は実成約の直近3ヶ月平均。各部屋の価格・相場比は下のリンクから。</div>
+            <div class="tap-hint">▸ この建物の募集中の部屋をすべて見る（各部屋に相場比つき）</div>
           </div>
           <div class="match"><b>${m.matchPct}<small>%</small></b><span>マッチ度</span></div>
         </div>`;
