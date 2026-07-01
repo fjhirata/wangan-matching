@@ -325,10 +325,10 @@ function renderResult() {
               <span class="chip">${blurFloor(L.floor)}・${blurSqm(L.sqm)}${L.layout ? "・" + L.layout : ""}${L.direction ? "・" + L.direction + "向き" : ""}${L.corner ? "・角部屋" : ""}</span>
             </div>
             <div class="chips">
-              <span class="chip price">募集 ${L.askingTsubo}万/坪</span>
+              <span class="chip price">この部屋 ${L.askingTsubo}万/坪</span>
               ${b.marketTsubo ? `<span class="chip">${b.tsuboSource === "成約" ? "成約相場 " + b.marketTsubo + "万/坪" : "参考 " + b.marketTsubo + "万/坪(募集)"}</span>` : ""}
               ${valueTag(L.askingTsubo, b.marketTsubo, b.tsuboSource)}
-              ${b.trendPct != null ? `<span class="chip ${b.trendPct >= 0 ? "up" : "down"}">📈 ${b.trendPct >= 0 ? "+" : ""}${b.trendPct}%</span>` : ""}
+              ${b.trendPct != null ? `<span class="chip ${b.trendPct >= 0 ? "up" : "down"}">📈 ${b.trendPct >= 0 ? "+" : ""}${b.trendPct}%${b.trendYears ? "(" + b.trendYears + "年)" : "(累計)"}</span>` : ""}
               <span class="chip fac">🌅 眺望 ${L.viewScore}</span>
             </div>
             ${facs.length ? `<div class="chips">${facs.map((f) => `<span class="chip fac">${f === "バー" ? "ラウンジ/バー" : f}</span>`).join("")}</div>` : ""}
@@ -367,11 +367,13 @@ function renderResult() {
       <p class="lock-note">📊「成約相場」＝実際に売れた坪単価の直近3ヶ月平均（湾岸タワマンDB・月次更新）／「募集」＝現在の売り出し坪単価。相場比はその差。各スコアは実データに基づく算出値です。</p>
       <p class="lock-note">🔒 部屋番号・正確な階数/面積・最新の空室状況はLINEでご案内します</p>
 
-      <div class="section-title">🔧 条件を変えて再検索</div>
-      <div class="card" id="condPanel">
-        <p class="sub" style="margin-bottom:14px">性格診断の回答はそのまま、条件だけ変えてすぐ再検索できます。</p>
-        ${conditionFieldsHTML(r.conds)}
-        <button class="btn btn-primary" id="reSearchInline">この条件で再検索する</button>
+      <div class="card cond-card" id="condPanel">
+        <button class="cond-toggle" id="condToggle" aria-expanded="false">🔧 条件のみ変更して再検索<span class="chev">▾</span></button>
+        <div class="cond-body" id="condBody" hidden>
+          <p class="sub" style="margin:12px 0 14px">性格診断の回答はそのまま、条件だけ変えてすぐ再検索できます。</p>
+          ${conditionFieldsHTML(r.conds)}
+          <button class="btn btn-primary" id="reSearchInline">この条件で再検索する</button>
+        </div>
       </div>
 
       <div class="card cta-card">
@@ -385,8 +387,12 @@ function renderResult() {
       </div>
     </section>`;
 
+  const condBody = document.getElementById("condBody");
+  const condToggle = document.getElementById("condToggle");
+  const openCond = (open) => { condBody.hidden = !open; condToggle.setAttribute("aria-expanded", open ? "true" : "false"); condToggle.classList.toggle("open", open); };
+  condToggle.onclick = () => openCond(condBody.hidden);
   const loosen = document.getElementById("loosen");
-  if (loosen) loosen.onclick = () => { const p = document.getElementById("condPanel"); if (p) p.scrollIntoView({ behavior: "smooth", block: "start" }); };
+  if (loosen) loosen.onclick = () => { openCond(true); document.getElementById("condPanel").scrollIntoView({ behavior: "smooth", block: "start" }); };
   document.getElementById("line").onclick = () => {
     const url = r.lineUrl || CONFIG.LINE_URL || "#";
     track("line_click", { type: r.type && r.type.name, top: r.matches[0] && r.matches[0].listing.name });

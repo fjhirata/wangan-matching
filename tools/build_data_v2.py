@@ -144,6 +144,7 @@ def load_old_market():
         tsubo_now, win_months, tx_in_win = base.moving_avg_price(rec, max_ym)
         years = [y for y, _, _, _ in rec if y]
         trend = None
+        years_span = None
         if years:
             y_min, y_max = min(years), max(years)
             if (y_max - y_min) >= 3:
@@ -151,7 +152,8 @@ def load_old_market():
                 late = [t for y, _, t, _ in rec if y >= y_max - 1]
                 if early and late and statistics.median(early):
                     trend = round((statistics.median(late) / statistics.median(early) - 1) * 100, 1)
-        out[k] = {"marketTsubo": tsubo_now, "windowMonths": win_months, "txInWindow": tx_in_win, "txCount": len(rec), "trendPct": trend}
+                    years_span = y_max - y_min
+        out[k] = {"marketTsubo": tsubo_now, "windowMonths": win_months, "txInWindow": tx_in_win, "txCount": len(rec), "trendPct": trend, "trendYears": years_span}
     return out, max_ym
 
 
@@ -274,15 +276,15 @@ def build():
         asking_tsubos = [round(u["price"] / (u["sqm"] / TSUBO)) for u in units if u["sqm"]]
         if mk_old.get("marketTsubo"):
             tsubo_price, tsubo_source = mk_old["marketTsubo"], "成約"
-            trend, tx_count, win_months = mk_old.get("trendPct"), mk_old.get("txCount", 0), mk_old.get("windowMonths")
+            trend, tx_count, win_months, trend_years = mk_old.get("trendPct"), mk_old.get("txCount", 0), mk_old.get("windowMonths"), mk_old.get("trendYears")
         elif mk_new.get("marketTsubo"):
             tsubo_price, tsubo_source = mk_new["marketTsubo"], "成約"
-            trend, tx_count, win_months = mk_new.get("trendPct"), mk_new.get("txCount", 0), None
+            trend, tx_count, win_months, trend_years = mk_new.get("trendPct"), mk_new.get("txCount", 0), None, None
         elif asking_tsubos:
             tsubo_price, tsubo_source = round(statistics.median(asking_tsubos)), "募集"
-            trend, tx_count, win_months = None, 0, None
+            trend, tx_count, win_months, trend_years = None, 0, None, None
         else:
-            tsubo_price, tsubo_source, trend, tx_count, win_months = None, None, None, 0, None
+            tsubo_price, tsubo_source, trend, tx_count, win_months, trend_years = None, None, None, 0, None, None
 
         sqms = [u["sqm"] for u in units if u["sqm"]]
         median_sqm = round(statistics.median(sqms), 1) if sqms else None
@@ -298,7 +300,7 @@ def build():
         mansions.append({
             "key": bkey, "name": rep_name, "area": area,
             "marketTsubo": tsubo_price, "tsuboSource": tsubo_source, "tsuboWindowMonths": win_months,
-            "trendPct": trend, "txCount": tx_count,
+            "trendPct": trend, "trendYears": trend_years, "txCount": tx_count,
             "listingCount": len(units), "medianSqm": median_sqm, "repLayout": rep_layout,
             "station": sp.get("station"), "walkMin": sp.get("walkMin"),
             "builtYear": sp.get("builtYear"), "ageYears": sp.get("ageYears"),
