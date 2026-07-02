@@ -215,6 +215,12 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:26px;heigh
 .chip.vok{background:#eef3f9;color:#4a5a73;border-color:var(--line);font-weight:700}
 .chip.vhigh{background:#fdeede;color:#a85a17;border-color:#f5dcbb;font-weight:800}
 .unit .uinfo .chip{margin-top:5px;display:inline-block}
+/* 部屋のチェック選択（まとめてLINE相談） */
+.unit{cursor:pointer}
+.unit .ucheck{width:21px;height:21px;flex:0 0 auto;margin:0;accent-color:var(--bay);cursor:pointer}
+.unit .uinfo{flex:1 1 auto}
+.unit.on{border-color:var(--bay);background:#eaf3fc}
+.pick-hint{font-size:.78rem;color:var(--bay-d);font-weight:700;margin:2px 0 10px}
 /* 折りたたみ式 条件再検索パネル */
 .cond-card{padding:0;overflow:hidden}
 .cond-toggle{width:100%;background:none;border:0;font:inherit;font-weight:800;font-size:1rem;color:var(--navy);
