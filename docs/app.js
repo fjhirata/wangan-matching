@@ -5,6 +5,7 @@
    - 結果から「条件だけ変えて再検索」「最初からやり直す」 */
 const CONFIG = {
   LINE_URL: "https://liff.line.me/2000002966-QKeEB4Jy/landing?follow=%40057dqjjg&lp=p6O2dE&liff_id=2000002966-QKeEB4Jy",
+  LINE_OA: "@057dqjjg", // FJリアルティ公式アカウント（oaMessageで相談文を入力欄に反映）
 };
 const $app = document.getElementById("app");
 
@@ -427,17 +428,34 @@ function renderResult() {
 }
 
 /* ---------- 建物の募集中住戸モーダル ---------- */
-function unitRow(L, b) {
+function unitRow(L, b, checked) {
   const tag = valueTag(L.askingTsubo, b && b.marketTsubo, b && b.tsuboSource);
   return `
-    <div class="unit">
+    <label class="unit${checked ? " on" : ""}">
+      <input type="checkbox" class="ucheck" data-id="${L.id}" ${checked ? "checked" : ""} aria-label="この部屋を相談リストに追加">
       <div class="uinfo">
         <b>${blurFloor(L.floor)}・${blurSqm(L.sqm)}</b>
         <span>${L.layout || "間取り不明"}${L.direction ? "・" + L.direction + "向き" : ""}${L.corner ? "・角部屋" : ""}・🌅${L.viewScore}</span>
         ${tag}
       </div>
       <div class="uprice"><b>${fmtMan(L.price)}</b><span>坪${L.askingTsubo}万</span></div>
-    </div>`;
+    </label>`;
+}
+// 選んだ部屋をLINE相談用テキストに（建物名＋価格＋間取り等で特定。階/面積はぼかし維持）
+function buildLineText(b, units) {
+  const head = `【湾岸マッチングから相談】\n${b.name}（${b.area}${b.station ? "・" + b.station + "駅 徒歩" + (b.walkMin != null ? b.walkMin + "分" : "") : ""}${b.ageYears != null ? "・築" + b.ageYears + "年" : ""}）`;
+  if (!units.length) {
+    return head + `\n\nこの建物が気になっています。募集中の部屋について詳しく教えてください。`;
+  }
+  const lines = units.map((L) => {
+    const p = [L.layout || "間取り不明"];
+    if (L.direction) p.push(L.direction + "向き");
+    if (L.corner) p.push("角部屋");
+    p.push(blurFloor(L.floor) + "/" + blurSqm(L.sqm));
+    p.push(fmtMan(L.price));
+    return "・" + p.join("・");
+  });
+  return head + `\n下記の部屋が気になっています。詳しく教えてください。\n` + lines.join("\n");
 }
 function openBuildingModal(bid) {
   const b = state.mById[bid];
@@ -445,6 +463,8 @@ function openBuildingModal(bid) {
   const conds = (state.result && state.result.conds) || {};
   const all = state.listings.filter((L) => L.bid === bid).sort((x, y) => x.price - y.price);
   const matching = all.filter((L) => WANGAN.listingPassesConds(L, b, conds));
+  const byId = {}; all.forEach((L) => { byId[L.id] = L; });
+  const selected = new Set();
   let showAll = false;
   track("building_detail", { building: b.name, matching: matching.length, all: all.length });
   const facs = ["プール", "ジム", "サウナ", "バー", "コンビニ", "内廊下"].filter((f) => b.facilities && b.facilities[f]);
@@ -459,15 +479,20 @@ function openBuildingModal(bid) {
         ${facs.map((f) => `<span class="chip fac">${f === "バー" ? "ラウンジ/バー" : f}</span>`).join("")}
       </div>
       <div class="modal-sub" id="uSub"></div>
+      <div class="pick-hint">☑ 気になる部屋にチェックすると、まとめてLINEで相談できます</div>
       <div class="unit-list" id="uList"></div>
       <button class="utoggle" id="uToggle"></button>
       <p class="lock-note" style="margin-top:10px">※ 部屋番号・正確な階数/面積・最新の空室状況はLINEでご案内します</p>
       <button class="btn btn-line" id="mLine">💬 この建物について相談する（LINE）</button>
     </div>
   </div>`);
+  const updateLineBtn = () => {
+    const n = selected.size;
+    m.querySelector("#mLine").innerHTML = n ? `💬 選んだ${n}戸でLINE相談` : "💬 この建物について相談する（LINE）";
+  };
   const renderList = () => {
     const arr = showAll ? all : matching;
-    m.querySelector("#uList").innerHTML = arr.length ? arr.map((L) => unitRow(L, b)).join("")
+    m.querySelector("#uList").innerHTML = arr.length ? arr.map((L) => unitRow(L, b, selected.has(L.id))).join("")
       : '<div class="rest" style="padding:10px 4px">ご希望条件に合う募集中はありません。下の「条件外も見る」で全戸を確認できます。</div>';
     m.querySelector("#uSub").innerHTML = showAll
       ? `この建物の募集中 <b>${all.length}</b> 戸 <small>（安い順・階/面積ぼかし）</small>`
@@ -477,6 +502,13 @@ function openBuildingModal(bid) {
       tg.style.display = "";
       tg.textContent = showAll ? `↩ 条件に合う${matching.length}戸だけ表示` : `条件以外も含めて全${all.length}戸を見る ▾`;
     } else { tg.style.display = "none"; }
+    m.querySelectorAll(".ucheck").forEach((cb) => {
+      cb.onchange = () => {
+        if (cb.checked) selected.add(cb.dataset.id); else selected.delete(cb.dataset.id);
+        const lab = cb.closest(".unit"); if (lab) lab.classList.toggle("on", cb.checked);
+        updateLineBtn();
+      };
+    });
   };
   document.body.appendChild(m);
   document.body.style.overflow = "hidden";
@@ -484,8 +516,18 @@ function openBuildingModal(bid) {
   m.onclick = (e) => { if (e.target === m) close(); };
   m.querySelector(".modal-x").onclick = close;
   m.querySelector("#uToggle").onclick = () => { showAll = !showAll; renderList(); };
-  m.querySelector("#mLine").onclick = () => { track("line_click", { from: "modal", building: b.name }); window.open(CONFIG.LINE_URL, "_blank"); };
+  m.querySelector("#mLine").onclick = () => {
+    const chosen = [...selected].map((id) => byId[id]).filter(Boolean);
+    const text = buildLineText(b, chosen);
+    try { if (navigator.clipboard) navigator.clipboard.writeText(text); } catch (e) {}
+    track("line_click", { from: "modal", building: b.name, units: chosen.length });
+    const url = chosen.length
+      ? "https://line.me/R/oaMessage/" + CONFIG.LINE_OA + "/?" + encodeURIComponent(text)
+      : CONFIG.LINE_URL;
+    window.open(url, "_blank");
+  };
   renderList();
+  updateLineBtn();
 }
 
 function shareX() {
